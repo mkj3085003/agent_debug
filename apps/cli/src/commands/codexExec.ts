@@ -34,11 +34,12 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
     text?: string;
     file?: string;
     source: string;
+    sourceDetail?: string;
   };
 
   const extractPromptFromArgs = async (
     rawArgs: string[]
-  ): Promise<{ text: string; source: string } | null> => {
+  ): Promise<{ text: string; source: string; sourceDetail?: string } | null> => {
     if (!rawArgs.length) {
       return null;
     }
@@ -76,21 +77,31 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
     let selectedPrompt: PromptCandidate | undefined;
     let afterDoubleDash = false;
 
-    const recordPromptValue = (value: string, index: number, source: string): void => {
+    const recordPromptValue = (
+      value: string,
+      index: number,
+      source: string,
+      sourceDetail?: string
+    ): void => {
       if (!value) {
         return;
       }
       if (!selectedPrompt || index >= selectedPrompt.index) {
-        selectedPrompt = { index, text: value, source };
+        selectedPrompt = { index, text: value, source, sourceDetail };
       }
     };
 
-    const recordPromptFile = (value: string, index: number, source: string): void => {
+    const recordPromptFile = (
+      value: string,
+      index: number,
+      source: string,
+      sourceDetail?: string
+    ): void => {
       if (!value) {
         return;
       }
       if (!selectedPrompt || index >= selectedPrompt.index) {
-        selectedPrompt = { index, file: value, source };
+        selectedPrompt = { index, file: value, source, sourceDetail };
       }
     };
 
@@ -108,7 +119,7 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
           !arg.startsWith("--") &&
           !arg.startsWith("-p=")
         ) {
-          recordPromptValue(arg.slice(2), i, "flag");
+          recordPromptValue(arg.slice(2), i, "flag", "-p");
           continue;
         }
         const eqIndex = arg.indexOf("=");
@@ -117,9 +128,9 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
 
         if (promptFlags.has(flag)) {
           if (inlineValue !== null) {
-            recordPromptValue(inlineValue, i, "flag");
+            recordPromptValue(inlineValue, i, "flag", flag);
           } else if (rawArgs[i + 1]) {
-            recordPromptValue(rawArgs[i + 1], i, "flag");
+            recordPromptValue(rawArgs[i + 1], i, "flag", flag);
             i += 1;
           }
           continue;
@@ -127,9 +138,9 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
 
         if (promptFileFlags.has(flag)) {
           if (inlineValue !== null) {
-            recordPromptFile(inlineValue, i, "file");
+            recordPromptFile(inlineValue, i, "file", flag);
           } else if (rawArgs[i + 1]) {
-            recordPromptFile(rawArgs[i + 1], i, "file");
+            recordPromptFile(rawArgs[i + 1], i, "file", flag);
             i += 1;
           }
           continue;
@@ -155,7 +166,7 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
       const resolved = path.isAbsolute(promptFile) ? promptFile : path.resolve(cwd, promptFile);
       try {
         const content = await fs.readFile(resolved, "utf-8");
-        return { text: content, source: selectedPrompt.source };
+        return { text: content, source: "file", sourceDetail: resolved };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         await recorder.recordError(`Prompt file read failed: ${message}`);
@@ -163,7 +174,11 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
     }
 
     if (selectedPrompt?.text) {
-      return { text: selectedPrompt.text, source: selectedPrompt.source };
+      return {
+        text: selectedPrompt.text,
+        source: selectedPrompt.source,
+        sourceDetail: selectedPrompt.sourceDetail
+      };
     }
 
     if (positional.length) {
@@ -177,7 +192,7 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
   const promptInfo = await extractPromptFromArgs(args);
   let stdinPayload: Buffer | null = null;
   if (promptInfo?.text) {
-    await recorder.recordUserInput(promptInfo.text);
+    await recorder.recordUserInput(promptInfo.text, promptInfo.source, promptInfo.sourceDetail);
   } else if (!process.stdin.isTTY) {
     const chunks: Buffer[] = [];
     for await (const chunk of process.stdin) {
@@ -187,7 +202,7 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
       stdinPayload = Buffer.concat(chunks);
       const text = stdinPayload.toString("utf-8");
       if (text.trim()) {
-        await recorder.recordUserInput(text);
+        await recorder.recordUserInput(text, "stdin");
       }
     }
   }
@@ -286,6 +301,7 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
 
   const toolStarts = new Map<string, number>();
   const recordedToolCalls = new Set<string>();
+  let stderrBuffer = "";
 
   const extractCommandExecutionItem = (
     event: Record<string, unknown>
@@ -298,6 +314,15 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
       return null;
     }
     return item;
+  };
+
+  const pickOutputString = (...values: unknown[]): string | undefined => {
+    for (const value of values) {
+      if (typeof value === "string" && value.length > 0) {
+        return value;
+      }
+    }
+    return undefined;
   };
 
   const getCommandFromItem = (item: Record<string, unknown>): string => {
@@ -325,28 +350,63 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
     });
   };
 
-  const extractAgentMessage = (event: Record<string, unknown>): string | null => {
+  const extractTextItem = (
+    event: Record<string, unknown>
+  ): { role: "user" | "model"; text: string; source: string } | null => {
     if (event.type !== "item.completed") {
       return null;
     }
     const item = event.item as Record<string, unknown> | undefined;
-    if (!item || item.type !== "agent_message") {
+    if (!item) {
       return null;
     }
     const text = item.text;
-    return typeof text === "string" ? text : null;
+    if (typeof text !== "string" || !text.length) {
+      return null;
+    }
+    const rawType = typeof item.type === "string" ? item.type : "";
+    const lowered = rawType.toLowerCase();
+    if (lowered.includes("user")) {
+      return { role: "user", text, source: `codex.${rawType || "user_message"}` };
+    }
+    if (lowered.includes("reason")) {
+      return { role: "model", text, source: `codex.${rawType || "reasoning"}` };
+    }
+    if (
+      lowered.includes("agent") ||
+      lowered.includes("assistant") ||
+      lowered.includes("model") ||
+      lowered.includes("message")
+    ) {
+      return { role: "model", text, source: `codex.${rawType || "agent_message"}` };
+    }
+    return { role: "model", text, source: `codex.${rawType || "message"}` };
   };
 
-  const extractUserMessage = (event: Record<string, unknown>): string | null => {
+  const extractItemError = (
+    event: Record<string, unknown>
+  ): { message: string; stack?: string } | null => {
+    if (event.type === "error") {
+      const message = typeof event.message === "string" ? event.message : "";
+      if (message) {
+        const stack = typeof event.stack === "string" ? event.stack : undefined;
+        return { message, stack };
+      }
+      return null;
+    }
     if (event.type !== "item.completed") {
       return null;
     }
     const item = event.item as Record<string, unknown> | undefined;
-    if (!item || item.type !== "user_message") {
+    if (!item || item.type !== "error") {
       return null;
     }
-    const text = item.text;
-    return typeof text === "string" ? text : null;
+    const message = typeof item.message === "string" ? item.message : "";
+    if (!message) {
+      return null;
+    }
+    const stack = typeof item.stack === "string" ? item.stack : undefined;
+    return { message, stack };
   };
 
   const recordLine = (line: string): void => {
@@ -365,13 +425,17 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
         const callId = getCallIdForItem(commandItem);
         recordToolCallForItem(commandItem, callId);
       }
-      const agentText = extractAgentMessage(event);
-      if (agentText) {
-        processing = processing.then(() => recorder.recordModelOutput(agentText));
+      const textItem = extractTextItem(event);
+      if (textItem?.role === "model") {
+        processing = processing.then(() => recorder.recordModelOutput(textItem.text, textItem.source));
+      } else if (textItem?.role === "user") {
+        processing = processing.then(() =>
+          recorder.recordUserInput(textItem.text, textItem.source)
+        );
       }
-      const userText = extractUserMessage(event);
-      if (userText) {
-        processing = processing.then(() => recorder.recordUserInput(userText));
+      const itemError = extractItemError(event);
+      if (itemError) {
+        processing = processing.then(() => recorder.recordError(itemError.message, itemError.stack));
       }
       if (commandItem && event.type === "item.completed") {
         const callId = getCallIdForItem(commandItem);
@@ -382,11 +446,14 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
           exitCode?: number;
           durationMs?: number;
           result?: Record<string, unknown>;
+          stderr?: string;
         } = {};
-        const aggregated = commandItem.aggregated_output;
-        if (typeof aggregated === "string" && aggregated.length) {
-          output.stdout = aggregated;
-        }
+        output.stdout = pickOutputString(
+          commandItem.stdout,
+          commandItem.aggregated_output,
+          commandItem.output
+        );
+        output.stderr = pickOutputString(commandItem.stderr, commandItem.stderr_output);
         const exitCode = commandItem.exit_code;
         if (typeof exitCode === "number") {
           output.exitCode = exitCode;
@@ -436,6 +503,7 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
 
   if (child.stderr) {
     child.stderr.on("data", (chunk: Buffer) => {
+      stderrBuffer += chunk.toString();
       process.stderr.write(chunk);
     });
   }
@@ -458,6 +526,9 @@ export async function codexExecCommand(args: string[], options: CodexExecOptions
   }
 
   await processing;
+  if (stderrBuffer.trim()) {
+    await recorder.recordError(`codex stderr: ${stderrBuffer.trim()}`);
+  }
   await recorder.endSession(interrupted ? "cancelled" : exitCode === 0 ? "ok" : "error");
   process.exitCode = exitCode;
 }

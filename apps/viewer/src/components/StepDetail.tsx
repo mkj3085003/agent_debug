@@ -53,6 +53,8 @@ interface PromptItem {
   step: number;
   ts: string;
   text: string;
+  source?: string;
+  sourceDetail?: string;
 }
 
 function DetailSection({
@@ -266,9 +268,22 @@ function getPromptItems(events: AgentEvent[]): PromptItem[] {
   const items: PromptItem[] = [];
   for (const event of events) {
     if (event.type === "user.input") {
-      items.push({ role: "user", step: event.step, ts: event.ts, text: event.text });
+      items.push({
+        role: "user",
+        step: event.step,
+        ts: event.ts,
+        text: event.text,
+        source: event.source,
+        sourceDetail: event.sourceDetail
+      });
     } else if (event.type === "model.output") {
-      items.push({ role: "model", step: event.step, ts: event.ts, text: event.text });
+      items.push({
+        role: "model",
+        step: event.step,
+        ts: event.ts,
+        text: event.text,
+        source: event.source
+      });
     } else if (event.type === "codex.event") {
       items.push({
         role: "codex",
@@ -293,6 +308,16 @@ function findPromptEvent(events: AgentEvent[], item: PromptItem): AgentEvent | n
     return exact;
   }
   return events.find((event) => event.step === item.step) ?? null;
+}
+
+function formatPromptSource(source?: string, detail?: string): string {
+  if (!source) {
+    return "";
+  }
+  if (detail) {
+    return `${source} (${detail})`;
+  }
+  return source;
 }
 
 export function StepDetail({
@@ -330,6 +355,7 @@ export function StepDetail({
     }
     return getStepExplanation(event, events);
   }, [event, events]);
+  const recordedExplanation = event?.explain ?? "";
 
   const promptItems = useMemo(() => getPromptItems(events), [events]);
 
@@ -436,12 +462,19 @@ export function StepDetail({
       case "user.input":
         return (
           <DetailSection title="User input">
+            {event.source ? (
+              <DetailRow
+                label="Source"
+                value={formatPromptSource(event.source, event.sourceDetail)}
+              />
+            ) : null}
             <pre className="detail-code">{event.text}</pre>
           </DetailSection>
         );
       case "model.output":
         return (
           <DetailSection title="Model output">
+            {event.source ? <DetailRow label="Source" value={event.source} /> : null}
             <pre className="detail-code">{event.text}</pre>
           </DetailSection>
         );
@@ -643,6 +676,11 @@ export function StepDetail({
       </div>
       {restoreStatus ? <div className="detail-status">{restoreStatus}</div> : null}
       {rerunStatus ? <div className="detail-status detail-status--accent">{rerunStatus}</div> : null}
+      {recordedExplanation ? (
+        <DetailSection title="Recorded explanation">
+          <div className="detail-note">{recordedExplanation}</div>
+        </DetailSection>
+      ) : null}
       <DetailSection title="Step explanation">
         <div className="detail-note">{explanation}</div>
       </DetailSection>
@@ -683,6 +721,10 @@ export function StepDetail({
                 >
                   <div className="prompt-meta">
                     <span className="prompt-role">{item.role.toUpperCase()}</span>
+                    {item.source ? <span className="prompt-source">{item.source}</span> : null}
+                    {item.sourceDetail ? (
+                      <span className="prompt-source-detail">{item.sourceDetail}</span>
+                    ) : null}
                     <span className="prompt-step">#{item.step}</span>
                     <span className="prompt-time">{new Date(item.ts).toLocaleTimeString()}</span>
                   </div>

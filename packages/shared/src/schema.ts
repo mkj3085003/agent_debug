@@ -29,6 +29,7 @@ export interface BaseEvent {
   ts: string;
   type: EventType;
   meta?: EventMeta;
+  explain?: string;
 }
 
 export interface SessionStartEvent extends BaseEvent {
@@ -44,11 +45,14 @@ export interface SessionEndEvent extends BaseEvent {
 export interface UserInputEvent extends BaseEvent {
   type: "user.input";
   text: string;
+  source?: string;
+  sourceDetail?: string;
 }
 
 export interface ModelOutputEvent extends BaseEvent {
   type: "model.output";
   text: string;
+  source?: string;
 }
 
 export interface ToolCallEvent extends BaseEvent {

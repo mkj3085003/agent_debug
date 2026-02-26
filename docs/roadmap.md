@@ -11,7 +11,7 @@
 - 记录策略：默认忽略只读命令，支持 ignore/only/important
 
 ## 已知短板
-- codex prompt 抽取为轻量规则，未覆盖 --input-file 等
+- codex prompt 抽取仍是启发式解析，复杂组合参数可能漏掉
 - codex 事件仍以 codex.event 为主，结构化 user/model/tool 事件不完整
 - diff 仍以文件内容为主，缺少增量 patch 优化
 - rerun 仅支持 shell 工具，复杂工具链未打通
@@ -40,4 +40,4 @@
 - E2E 测试与回归脚本
 
 ## 当前执行（进行中）
-- Phase 1 / Step 1：stdin/管道 prompt 采集
+- Phase 1 / Step 4：记录 explain 字段（规则生成，后续可接模型）

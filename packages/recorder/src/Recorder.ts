@@ -1,6 +1,5 @@
 import {
   AgentEvent,
-  BaseEvent,
   EventMeta,
   makeCallId,
   makeSessionId,
@@ -9,6 +8,31 @@ import {
   SchemaVersion
 } from "@agent-debug/shared";
 import { JsonlStore } from "@agent-debug/store";
+
+type EventPayload = AgentEvent extends infer T
+  ? T extends AgentEvent
+    ? Omit<T, "schemaVersion" | "sessionId" | "step" | "ts" | "meta">
+    : never
+  : never;
+
+function formatCommandInput(input: Record<string, unknown>): string {
+  const command = typeof input.command === "string" ? input.command : "";
+  const args = Array.isArray(input.args) ? input.args.map((item) => String(item)) : [];
+  if (!command && args.length === 0) {
+    return "";
+  }
+  return [command, ...args].join(" ").trim();
+}
+
+function formatSourceLabel(source?: string, detail?: string): string {
+  if (!source) {
+    return "";
+  }
+  if (detail) {
+    return `${source} (${detail})`;
+  }
+  return source;
+}
 
 export class Recorder {
   private sessionId: string;
@@ -42,12 +66,12 @@ export class Recorder {
     });
   }
 
-  async recordUserInput(text: string): Promise<void> {
-    await this.append({ type: "user.input", text });
+  async recordUserInput(text: string, source?: string, sourceDetail?: string): Promise<void> {
+    await this.append({ type: "user.input", text, source, sourceDetail });
   }
 
-  async recordModelOutput(text: string): Promise<void> {
-    await this.append({ type: "model.output", text });
+  async recordModelOutput(text: string, source?: string): Promise<void> {
+    await this.append({ type: "model.output", text, source });
   }
 
   async recordToolCall(tool: string, input: Record<string, unknown>, callId = makeCallId()): Promise<string> {
@@ -87,14 +111,72 @@ export class Recorder {
     await this.append({ type: "error", message, stack });
   }
 
-  private async append(event: Omit<AgentEvent, keyof BaseEvent>): Promise<void> {
+  private buildExplanation(event: EventPayload): string | undefined {
+    switch (event.type) {
+      case "session.start": {
+        const command = event.input?.command;
+        const args = event.input?.args?.join(" ");
+        if (command) {
+          const tail = args ? ` ${args}` : "";
+          return `Session started: ${command}${tail}`;
+        }
+        return "Session started.";
+      }
+      case "session.end":
+        return `Session ended (${event.status}).`;
+      case "user.input": {
+        const sourceLabel = formatSourceLabel(event.source, event.sourceDetail);
+        return sourceLabel ? `User input recorded (${sourceLabel}).` : "User input recorded.";
+      }
+      case "model.output": {
+        const sourceLabel = event.source ? ` (${event.source})` : "";
+        return `Model output recorded${sourceLabel}.`;
+      }
+      case "tool.call": {
+        const command = formatCommandInput(event.input);
+        return command ? `Tool call (${event.tool}): ${command}` : `Tool call (${event.tool}).`;
+      }
+      case "tool.result": {
+        const parts = [`Tool result (${event.tool})`];
+        if (typeof event.output.exitCode === "number") {
+          parts.push(`exit ${event.output.exitCode}`);
+        }
+        if (typeof event.output.durationMs === "number") {
+          parts.push(`${event.output.durationMs}ms`);
+        }
+        return `${parts.join(" ")}.`;
+      }
+      case "fs.diff": {
+        const counts = { added: 0, modified: 0, deleted: 0 };
+        for (const file of event.files) {
+          const status = file.status ?? "modified";
+          counts[status] += 1;
+        }
+        return `Filesystem diff: +${counts.added} ~${counts.modified} -${counts.deleted}.`;
+      }
+      case "fs.snapshot":
+        return `Filesystem snapshot (${event.files.length} files).`;
+      case "test.result":
+        return `Test ${event.name}: ${event.status}.`;
+      case "error":
+        return `Error: ${event.message}`;
+      case "codex.event":
+        return "Codex event recorded.";
+      default:
+        return undefined;
+    }
+  }
+
+  private async append(event: EventPayload): Promise<void> {
+    const explain = event.explain ?? this.buildExplanation(event);
     const fullEvent = {
       schemaVersion: this.schemaVersion,
       sessionId: this.sessionId,
       step: this.step++,
       ts: nowIso(),
       meta: this.meta,
-      ...event
+      ...event,
+      explain
     } as AgentEvent;
     await this.store.appendEvent(this.sessionId, fullEvent);
   }
