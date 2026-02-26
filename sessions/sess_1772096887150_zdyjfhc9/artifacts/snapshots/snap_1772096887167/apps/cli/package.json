@@ -1,0 +1,26 @@
+{
+  "name": "@agent-debug/cli",
+  "version": "0.0.1",
+  "type": "module",
+  "bin": {
+    "agent-debug": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx src/index.ts",
+    "test": "echo 'no tests'"
+  },
+  "dependencies": {
+    "@agent-debug/recorder": "file:../../packages/recorder",
+    "@agent-debug/shared": "file:../../packages/shared",
+    "@agent-debug/store": "file:../../packages/store",
+    "@agent-debug/diff-engine": "file:../../packages/diff-engine",
+    "@agent-debug/replay": "file:../../packages/replay",
+    "@agent-debug/tool-adapters": "file:../../packages/tool-adapters",
+    "commander": "^12.1.0"
+  }
+}

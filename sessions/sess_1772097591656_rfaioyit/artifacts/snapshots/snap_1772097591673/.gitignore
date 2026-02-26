@@ -1,0 +1,14 @@
+node_modules
+.DS_Store
+dist
+build
+coverage
+.env
+.sessions
+
+# viewer
+apps/viewer/dist
+apps/viewer/.vite
+
+# logs
+*.log

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-label="Viewer UI placeholder">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#eef2f7" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" rx="24" fill="url(#bg)" />
+  <rect x="40" y="40" width="1120" height="595" rx="18" fill="#ffffff" stroke="#d6dee8" />
+  <rect x="40" y="40" width="1120" height="56" rx="18" fill="#0f172a" />
+  <text x="70" y="75" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace" font-size="20" fill="#e2e8f0">Agent Debug Viewer</text>
+
+  <rect x="70" y="120" width="300" height="475" rx="12" fill="#f8fafc" stroke="#e2e8f0" />
+  <text x="90" y="152" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#64748b">Timeline</text>
+
+  <rect x="90" y="175" width="260" height="44" rx="8" fill="#e2e8f0" />
+  <rect x="90" y="232" width="260" height="44" rx="8" fill="#e2e8f0" />
+  <rect x="90" y="289" width="260" height="44" rx="8" fill="#cbd5f5" />
+  <rect x="90" y="346" width="260" height="44" rx="8" fill="#e2e8f0" />
+  <rect x="90" y="403" width="260" height="44" rx="8" fill="#e2e8f0" />
+
+  <rect x="395" y="120" width="745" height="475" rx="12" fill="#ffffff" stroke="#e2e8f0" />
+  <text x="420" y="152" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#64748b">Step detail</text>
+
+  <rect x="420" y="175" width="690" height="110" rx="10" fill="#f1f5f9" />
+  <rect x="420" y="302" width="690" height="140" rx="10" fill="#f8fafc" />
+  <rect x="420" y="458" width="690" height="120" rx="10" fill="#f1f5f9" />
+
+  <text x="420" y="630" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="12" fill="#94a3b8">Placeholder image. Replace with a real viewer screenshot.</text>
+</svg>
