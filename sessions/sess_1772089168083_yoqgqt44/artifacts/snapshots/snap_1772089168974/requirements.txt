@@ -1,0 +1,9 @@
+numpy
+qiskit
+openai
+langchain-core
+langchain-community
+langchain-openai
+langchain-chroma
+langchain-classic
+chromadb

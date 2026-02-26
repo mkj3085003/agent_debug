@@ -1,0 +1,5 @@
+{"schemaVersion":"1.0.0","sessionId":"sess_demo","step":0,"ts":"2026-02-26T10:00:00.000Z","type":"session.start","input":{"command":"codex","args":["run"]}}
+{"schemaVersion":"1.0.0","sessionId":"sess_demo","step":1,"ts":"2026-02-26T10:00:02.000Z","type":"user.input","text":"Generate a hello world app"}
+{"schemaVersion":"1.0.0","sessionId":"sess_demo","step":2,"ts":"2026-02-26T10:00:05.000Z","type":"model.output","text":"Here is a plan..."}
+{"schemaVersion":"1.0.0","sessionId":"sess_demo","step":3,"ts":"2026-02-26T10:00:07.000Z","type":"tool.call","tool":"shell","callId":"call_001","input":{"command":"ls"}}
+{"schemaVersion":"1.0.0","sessionId":"sess_demo","step":4,"ts":"2026-02-26T10:00:08.000Z","type":"tool.result","tool":"shell","callId":"call_001","output":{"stdout":"src\n","stderr":"","exitCode":0,"durationMs":120}}

@@ -1,0 +1,21 @@
+{
+  "name": "agent-debug-platform",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "npm@10",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @agent-debug/shared && npm run build -w @agent-debug/store && npm run build -w @agent-debug/tool-adapters && npm run build -w @agent-debug/diff-engine && npm run build -w @agent-debug/recorder && npm run build -w @agent-debug/replay && npm run build -w @agent-debug/cli && npm run build -w @agent-debug/viewer",
+    "dev": "npm run -ws dev",
+    "test": "npm run -ws test",
+    "typecheck": "npm run build && npm run typecheck -w @agent-debug/shared && npm run typecheck -w @agent-debug/store && npm run typecheck -w @agent-debug/tool-adapters && npm run typecheck -w @agent-debug/diff-engine && npm run typecheck -w @agent-debug/recorder && npm run typecheck -w @agent-debug/replay && npm run typecheck -w @agent-debug/cli && npm run typecheck -w @agent-debug/viewer"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
