@@ -1,0 +1,13 @@
+{
+  "name": "runtime-debug-agent",
+  "version": "0.1.0",
+  "description": "Runtime single-step debug agent (DAP-based, editor-agnostic)",
+  "bin": {
+    "rda": "bin/rda.js",
+    "rda-adapter": "bin/rda-adapter.js"
+  },
+  "dependencies": {
+    "ws": "^8.17.1"
+  },
+  "license": "UNLICENSED"
+}
